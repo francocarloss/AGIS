@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGIS - Análisis Mensual del Mercado Asegurador</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-dark: #1a365d;
+            --primary-blue: #2c5282;
+            --primary-light: #3182ce;
+            --bg-light: #f7fafc;
+            --bg-card: #ffffff;
+            --text-dark: #1a202c;
+            --text-muted: #718096;
+            --border-color: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Open Sans', sans-serif; background: var(--bg-light); color: var(--text-dark); min-height: 100vh; }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-blue) 100%);
+            color: white; padding: 0.75rem 1.5rem;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: var(--shadow-lg); position: sticky; top: 0; z-index: 100;
+        }
+        .logo { display: flex; align-items: center; gap: 0.75rem; }
+        .logo-icon { width: 45px; height: 45px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: 'Montserrat', sans-serif; font-weight: 800; color: var(--primary-dark); font-size: 1rem; }
+        .logo-text { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1.1rem; }
+        .logo-subtitle { font-size: 0.65rem; opacity: 0.9; }
+        .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+        .nav-tabs { background: var(--primary-dark); padding: 0 1.5rem; display: flex; gap: 0.25rem; border-bottom: 3px solid #ed8936; flex-wrap: wrap; }
+        .nav-tab { padding: 0.75rem 1rem; color: rgba(255,255,255,0.7); cursor: pointer; font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 0.7rem; transition: all 0.3s ease; border-bottom: 3px solid transparent; margin-bottom: -3px; }
+        .nav-tab:hover { color: white; background: rgba(255,255,255,0.1); }
+        .nav-tab.active { color: white; border-bottom-color: #ed8936; background: rgba(255,255,255,0.1); }
+
+        .main-content { padding: 1rem; max-width: 1900px; margin: 0 auto; }
+
+        .upload-section { background: var(--bg-card); border-radius: 16px; padding: 2rem; text-align: center; box-shadow: var(--shadow-lg); margin-bottom: 1.5rem; border: 2px dashed var(--border-color); }
+        .upload-icon { width: 60px; height: 60px; background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-blue) 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; }
+        .upload-icon svg { width: 30px; height: 30px; fill: white; }
+        .upload-title { font-family: 'Montserrat', sans-serif; font-size: 1.2rem; font-weight: 700; color: var(--primary-dark); margin-bottom: 0.5rem; }
+        .upload-subtitle { color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem; }
+        .upload-btn { background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-blue) 100%); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
+        .file-input { display: none; }
+
+        .info-box { background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 8px; padding: 1rem; margin-top: 1.5rem; text-align: left; }
+        .info-box h4 { color: var(--primary-dark); margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .info-box ul { margin-left: 1.5rem; font-size: 0.8rem; color: var(--text-muted); }
+        .info-box li { margin-bottom: 0.25rem; }
+
+        .filters-section {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 0.25rem; }
+        .filter-label { font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 0.7rem; color: var(--primary-dark); text-transform: uppercase; }
+        .filter-select {
+            padding: 0.5rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 500;
+            font-size: 0.85rem;
+            min-width: 150px;
+            cursor: pointer;
+            background: white;
+        }
+        .filter-select:focus { outline: none; border-color: var(--primary-light); }
+        .filter-btn {
+            padding: 0.5rem 1.5rem;
+            background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-blue) 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-top: auto;
+        }
+        .filter-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+
+        .dashboard-card { background: var(--bg-card); border-radius: 10px; padding: 1rem; box-shadow: var(--shadow); margin-bottom: 1rem; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--border-color); }
+        .card-title { font-family: 'Montserrat', sans-serif; font-weight: 700; color: var(--primary-dark); font-size: 0.85rem; text-transform: uppercase; }
+        .section-title { font-family: 'Montserrat', sans-serif; font-weight: 700; color: white; font-size: 1rem; text-transform: uppercase; background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-blue) 100%); padding: 0.6rem 1rem; border-radius: 6px; margin-bottom: 0.75rem; text-align: center; }
+
+        .analysis-table { width: 100%; border-collapse: collapse; font-size: 0.65rem; margin-bottom: 0.75rem; }
+        .analysis-table th { background: var(--primary-dark); color: white; padding: 0.4rem 0.3rem; text-align: center; font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 0.6rem; border: 1px solid #2c5282; }
+        .analysis-table td { padding: 0.35rem 0.3rem; border: 1px solid var(--border-color); text-align: center; font-family: 'Montserrat', sans-serif; font-weight: 500; font-size: 0.6rem; }
+        .analysis-table .row-header { background: #f1f5f9; font-weight: 600; text-align: left; padding-left: 0.5rem; color: var(--primary-dark); }
+        .positive { color: #22543d; background: rgba(72, 187, 120, 0.15); }
+        .negative { color: #c53030; background: rgba(245, 101, 101, 0.15); }
+        .company-cell { font-weight: 600; font-size: 0.55rem; padding: 0.25rem !important; min-width: 50px; color: white; }
+
+        .indicator-row { display: flex; align-items: stretch; margin-bottom: 0.4rem; background: white; border-radius: 5px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .indicator-label { width: 200px; min-width: 200px; padding: 0.4rem 0.5rem; background: var(--primary-dark); color: white; font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 0.6rem; display: flex; align-items: center; }
+        .indicator-values { flex: 1; display: flex; overflow-x: auto; }
+        .indicator-cell { min-width: 58px; padding: 0.3rem 0.2rem; text-align: center; font-size: 0.55rem; border-right: 1px solid #e2e8f0; }
+        .indicator-cell .company { font-weight: 700; margin-bottom: 2px; padding: 2px 3px; border-radius: 2px; font-size: 0.5rem; color: white; }
+        .indicator-cell .value { font-family: 'Montserrat', sans-serif; font-weight: 600; }
+        .indicator-cell .rank { font-size: 0.45rem; color: var(--text-muted); }
+
+        .chart-container { position: relative; height: 400px; }
+        .chart-container-large { position: relative; height: 450px; }
+
+        .btn { padding: 0.5rem 1rem; border-radius: 6px; font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease; border: none; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-blue) 100%); color: white; }
+        .btn-success { background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; }
+        .btn-warning { background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); color: white; }
+        .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+
+        .loading { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.95); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; }
+        .loading.active { display: flex; }
+        .spinner { width: 50px; height: 50px; border: 4px solid var(--border-color); border-top-color: var(--primary-light); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { margin-top: 1rem; font-family: 'Montserrat', sans-serif; font-weight: 600; color: var(--primary-dark); }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+        @media (max-width: 1200px) { .grid-2 { grid-template-columns: 1fr; } }
+
+        .footer { background: var(--primary-dark); color: white; text-align: center; padding: 0.75rem; margin-top: 1.5rem; font-size: 0.75rem; }
+        .scroll-container { overflow-x: auto; padding-bottom: 0.4rem; }
+
+        .subramo-section { background: #edf2f7; padding: 0.6rem; border-radius: 5px; margin: 0.75rem 0; }
+        .subramo-title { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.7rem; color: var(--primary-dark); background: #cbd5e0; padding: 0.35rem 0.6rem; border-radius: 4px; margin-bottom: 0.5rem; }
+        .ramo-title { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.8rem; color: white; background: var(--primary-blue); padding: 0.4rem 0.75rem; border-radius: 4px; margin: 0.75rem 0 0.4rem 0; text-align: center; }
+
+        #dashboardContent { display: none; }
+
+        .periodo-info { background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; padding: 0.5rem 1rem; border-radius: 6px; font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 0.8rem; margin-bottom: 1rem; text-align: center; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1rem; }
+        .stat-card { background: white; border-radius: 8px; padding: 1rem; text-align: center; box-shadow: var(--shadow); }
+        .stat-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .stat-value { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1.2rem; color: var(--primary-dark); }
+        @media (max-width: 768px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loadingText">Procesando datos...</div>
+    </div>
+
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">AGIS</div>
+            <div>
+                <div class="logo-text">Análisis Mensual Completo</div>
+                <div class="logo-subtitle">Mercado Asegurador Guatemala</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-success" id="downloadBtn" style="display: none;" onclick="downloadExcel()">📊 Excel</button>
+            <button class="btn btn-warning" id="resetBtn" style="display: none;" onclick="resetApp()">Nuevo Archivo</button>
+        </div>
+    </header>
+
+    <nav class="nav-tabs" id="navTabs" style="display: none;">
+        <div class="nav-tab active" data-tab="resumen">Resumen</div>
+        <div class="nav-tab" data-tab="crecimiento">Crecimiento</div>
+        <div class="nav-tab" data-tab="share">Share por Ramo</div>
+        <div class="nav-tab" data-tab="indicadores">Indicadores</div>
+        <div class="nav-tab" data-tab="graficos">Gráficos</div>
+    </nav>
+
+    <main class="main-content">
+        <section class="upload-section" id="uploadSection">
+            <div class="upload-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12,12L16,16H13.5V19H10.5V16H8L12,12Z"/>
+                </svg>
+            </div>
+            <h2 class="upload-title">Cargar Datos AGIS Mensuales</h2>
+            <p class="upload-subtitle">Formato: Año | Mes | Concepto | Valores por Empresa</p>
+            <input type="file" class="file-input" id="fileInput" accept=".xlsx,.xls">
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                Seleccionar Archivo Excel
+            </button>
+            
+            <div class="info-box">
+                <h4>📋 Formato esperado del archivo:</h4>
+                <ul>
+                    <li><strong>Columna A:</strong> AÑO (2024, 2025, etc.)</li>
+                    <li><strong>Columna B:</strong> MES (01-Jan, 02-Feb, etc.) → Se extrae solo el número</li>
+                    <li><strong>Columna C-E:</strong> Códigos y descripción del concepto</li>
+                    <li><strong>Columnas F+:</strong> Valores por cada aseguradora</li>
+                </ul>
+                <h4 style="margin-top: 0.75rem;">📊 Conceptos requeridos:</h4>
+                <ul>
+                    <li>Primas: TOTAL, VIDA, ACCIDENTES Y ENFERMEDADES, DAÑOS + subramos</li>
+                    <li>Balance: ACTIVO, INVERSIONES, PASIVO, PATRIMONIO, etc.</li>
+                    <li>Resultados: ADQUISICIÓN BRUTA, SINIESTRALIDAD BRUTA, GASTOS ADMIN, etc.</li>
+                </ul>
+            </div>
+        </section>
+
+        <div id="dashboardContent">
+            <!-- Filtros -->
+            <div class="filters-section" id="filtersSection">
+                <div class="filter-group">
+                    <label class="filter-label">Año Actual</label>
+                    <select class="filter-select" id="filterAnioActual"></select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Mes Actual</label>
+                    <select class="filter-select" id="filterMesActual"></select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Año Comparación</label>
+                    <select class="filter-select" id="filterAnioComp"></select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Mes Comparación</label>
+                    <select class="filter-select" id="filterMesComp"></select>
+                </div>
+                <button class="filter-btn" onclick="applyFilters()">Aplicar Filtros</button>
+            </div>
+
+            <div class="periodo-info" id="periodoInfo"></div>
+
+            <!-- Tab: Resumen -->
+            <div class="tab-content active" id="tab-resumen">
+                <div class="section-title">RESUMEN EJECUTIVO</div>
+                <div class="stats-grid" id="statsGrid"></div>
+                <div class="dashboard-card">
+                    <div class="card-header"><span class="card-title">Top 10 Aseguradoras por Share</span></div>
+                    <div class="scroll-container" id="resumenTop10Container"></div>
+                </div>
+            </div>
+
+            <!-- Tab: Crecimiento -->
+            <div class="tab-content" id="tab-crecimiento">
+                <div class="section-title">ANÁLISIS DE CRECIMIENTO</div>
+                <div class="dashboard-card">
+                    <div class="card-header"><span class="card-title">Mercado vs Universales</span></div>
+                    <div class="scroll-container" id="tableMercadoContainer"></div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-header"><span class="card-title">Crecimiento por Aseguradora</span></div>
+                    <div class="scroll-container" id="tableCrecimientoContainer"></div>
+                </div>
+            </div>
+
+            <!-- Tab: Share por Ramo -->
+            <div class="tab-content" id="tab-share">
+                <div class="section-title">MARKET SHARE POR RAMO Y SUBRAMO</div>
+                <div id="shareRamosContainer"></div>
+            </div>
+
+            <!-- Tab: Indicadores -->
+            <div class="tab-content" id="tab-indicadores">
+                <div class="section-title">INDICADORES FINANCIEROS</div>
+                <div class="dashboard-card">
+                    <div class="card-header"><span class="card-title">Indicadores de Gestión</span></div>
+                    <div id="indicadoresGestionContainer"></div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-header"><span class="card-title">Indicadores de Rentabilidad</span></div>
+                    <div id="indicadoresRentabilidadContainer"></div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-header"><span class="card-title">Indicadores de Solvencia</span></div>
+                    <div id="indicadoresSolvenciaContainer"></div>
+                </div>
+            </div>
+
+            <!-- Tab: Gráficos -->
+            <div class="tab-content" id="tab-graficos">
+                <div class="grid-2">
+                    <div class="dashboard-card">
+                        <div class="card-header"><span class="card-title">Share de Mercado</span></div>
+                        <div class="chart-container-large"><canvas id="chartShare"></canvas></div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="card-header"><span class="card-title">Crecimiento %</span></div>
+                        <div class="chart-container-large"><canvas id="chartCrecimiento"></canvas></div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="card-header"><span class="card-title">ROE por Aseguradora</span></div>
+                        <div class="chart-container-large"><canvas id="chartROE"></canvas></div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="card-header"><span class="card-title">Siniestralidad</span></div>
+                        <div class="chart-container-large"><canvas id="chartSiniestralidad"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>Sistema AGIS - Análisis Mensual del Mercado Asegurador de Guatemala</p>
+    </footer>
+
+    <script>
+        Chart.register(ChartDataLabels);
+
+        // Mapeo de nombres de empresas
+        var NAME_MAP = {
+            'FICOHSA': 'FICOHSA', 'BMI': 'BMI', 'G&T': 'G&T', 'GENERAL': 'GENERAL',
+            'CONFÍO': 'CONFÍO', 'SISA': 'CONFÍO', 'ASSA': 'ASSA', 'ASSA ': 'ASSA',
+            'PAN-AMERICAN': 'PALIC', 'UNIVERSALES': 'SEGUNI', 'CEIBA': 'CEIBA', 'ROBLE': 'ROBLE',
+            'GUATEMALTECA': 'GUATE.', 'TRABAJADORES': 'ASETRAB', 'COLUMNA': 'COLUMNA',
+            'MAPFRE': 'MAPFRE', 'MAPFRE ': 'MAPFRE', 'AGROMERCANTIL': 'BAM',
+            'RURAL': 'RURAL', 'BUPA': 'BUPA'
+        };
+
+        var COLORS = {
+            'ROBLE': '#1a365d', 'G&T': '#2c5282', 'MAPFRE': '#9b2c2c', 'GENERAL': '#ecc94b',
+            'SEGUNI': '#38a169', 'RURAL': '#3182ce', 'PALIC': '#ed8936', 'BAM': '#553c9a',
+            'ASSA': '#d69e2e', 'ASETRAB': '#319795', 'COLUMNA': '#805ad5', 'CEIBA': '#d53f8c',
+            'BUPA': '#00bcd4', 'CONFÍO': '#e53e3e', 'FICOHSA': '#f6ad55', 'BMI': '#68d391', 'GUATE.': '#fc8181'
+        };
+
+        var MESES = {
+            '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
+            '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
+            '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
+        };
+
+        // Mapeo de conceptos a campos internos
+        var CONCEPTO_MAP = {
+            // Primas
+            'TOTAL': 'primas',
+            'VIDA': 'vida',
+            'ACCIDENTES Y ENFERMEDADES': 'accEnf',
+            'GASTOS MEDICOS Y AP': 'accEnf',
+            'DAÑOS': 'danos',
+            // Subramos Vida
+            'Planes Populares': 'vidaPopulares',
+            'Planes Individuales': 'vidaIndividuales',
+            'Planes Colectivos': 'vidaColectivos',
+            'Rentas y Pensiones': 'vidaRentas',
+            // Subramos Acc/Enf
+            'Salud y Hospitalización': 'accSalud',
+            'Accidentes Personales': 'accPersonales',
+            'Accidentes en Viajes': 'accViajes',
+            // Subramos Daños
+            'Incendio y Líneas Aliadas': 'danosIncendio',
+            'Terremoto': 'danosTermoto',
+            'Vehículos Automotores': 'danosVehiculos',
+            'Transportes': 'danosTransportes',
+            'Robo y Hurto': 'danosRobo',
+            'Cascos Marítimos': 'danosCascos',
+            'Rotura de Cristales': 'danosCristales',
+            'Aviación': 'danosAviacion',
+            'Responsabilidad Civil': 'danosRC',
+            'Seguro Obligatorio': 'danosObligatorio',
+            'Riesgos Técnicos': 'danosTecnicos',
+            'Agrícola': 'danosAgricola',
+            'Diversos': 'danosDiversos',
+            // Balance General
+            'ACTIVO': 'activo',
+            'INVERSIONES': 'inversiones',
+            'PRIMAS POR COBRAR': 'primasCobrar',
+            'PASIVO': 'pasivo',
+            'RESERVAS TÉCNICAS': 'reservasTecnicas',
+            'RESERVAS NETAS': 'reservasNetas',
+            'CAPITAL CONTABLE': 'patrimonio',
+            'PATRIMONIO': 'patrimonio',
+            'CAPITAL PAGADO': 'capitalPagado',
+            'RESULTADO DEL EJERCICIO': 'resultado',
+            // Estado de Resultados
+            'DE ADQUISICIÓN BRUTA': 'adquisicionBruta',
+            'ADQUISICIÓN BRUTA': 'adquisicionBruta',
+            'DE SINIESTRALIDAD BRUTA': 'siniestralidadBruta',
+            'SINIESTRALIDAD BRUTA': 'siniestralidadBruta',
+            'Gastos de Administración': 'gastosAdmin',
+            'GASTOS DE ADMINISTRACIÓN': 'gastosAdmin',
+            'Productos de Inversiones': 'productosInv',
+            'PRODUCTOS DE INVERSIONES': 'productosInv',
+            'UTILIDAD NETA': 'utilidadNeta',
+            'UTILIDAD (PÉRDIDA) NETA': 'utilidadNeta'
+        };
+
+        var rawData = [];
+        var empresas = [];
+        var aniosDisponibles = [];
+        var mesesDisponibles = [];
+        var calculatedData = {};
+        var charts = {};
+        var currentFilters = { anioActual: null, mesActual: null, anioComp: null, mesComp: null };
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                processFile(e.target.files[0]);
+            }
+        });
+
+        document.querySelectorAll('.nav-tab').forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
+                document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+                this.classList.add('active');
+                document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+            });
+        });
+
+        function processFile(file) {
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('loadingText').textContent = 'Leyendo archivo...';
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var data = new Uint8Array(e.target.result);
+                    var workbook = XLSX.read(data, { type: 'array' });
+                    
+                    document.getElementById('loadingText').textContent = 'Extrayendo datos...';
+                    extractData(workbook);
+                    
+                    document.getElementById('loadingText').textContent = 'Configurando filtros...';
+                    setupFilters();
+                    
+                    showDashboard();
+                    applyFilters();
+                    
+                    document.getElementById('loading').classList.remove('active');
+                } catch (err) {
+                    console.error('Error:', err);
+                    alert('Error al procesar: ' + err.message);
+                    document.getElementById('loading').classList.remove('active');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function extractData(workbook) {
+            var sheet = workbook.Sheets[workbook.SheetNames[0]];
+            var data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            
+            if (data.length < 2) {
+                throw new Error('El archivo no tiene suficientes datos');
+            }
+
+            // Extraer encabezados (empresas)
+            var headers = data[0];
+            empresas = [];
+            
+            // Buscar columnas de empresas (después de las columnas de identificación)
+            for (var i = 6; i < headers.length; i++) {
+                var nombre = headers[i];
+                if (nombre && typeof nombre === 'string') {
+                    var nombreTrim = nombre.trim();
+                    if (nombreTrim !== 'MERCADO' && !nombreTrim.toLowerCase().includes('mes') && nombreTrim !== '') {
+                        var nombreCorto = NAME_MAP[nombreTrim] || nombreTrim;
+                        if (!empresas.find(function(e) { return e.nombre === nombreCorto; })) {
+                            empresas.push({ col: i, nombreExcel: nombreTrim, nombre: nombreCorto });
+                        }
+                    }
+                }
+            }
+
+            console.log('Empresas encontradas:', empresas.map(function(e) { return e.nombre; }));
+
+            // Extraer datos
+            rawData = [];
+            var aniosSet = new Set();
+            var mesesSet = new Set();
+
+            for (var row = 1; row < data.length; row++) {
+                var rowData = data[row];
+                if (!rowData || !rowData[0]) continue;
+
+                var anio = rowData[0];
+                var mesRaw = rowData[1] || '';
+                var concepto = (rowData[3] || rowData[2] || '').toString().trim();
+                
+                // Extraer número de mes (01-Jan → 01)
+                var mes = extractMes(mesRaw);
+                
+                if (!anio || !mes || !concepto) continue;
+
+                aniosSet.add(anio);
+                mesesSet.add(mes);
+
+                var registro = {
+                    anio: anio,
+                    mes: mes,
+                    mesNombre: MESES[mes] || mes,
+                    conceptoOriginal: concepto,
+                    concepto: normalizeConcepto(concepto),
+                    valores: {}
+                };
+
+                // Extraer valores de cada empresa
+                empresas.forEach(function(emp) {
+                    var val = rowData[emp.col];
+                    registro.valores[emp.nombre] = (typeof val === 'number') ? val : (parseFloat(val) || 0);
+                });
+
+                rawData.push(registro);
+            }
+
+            aniosDisponibles = Array.from(aniosSet).sort(function(a, b) { return b - a; });
+            mesesDisponibles = Array.from(mesesSet).sort();
+
+            console.log('Años disponibles:', aniosDisponibles);
+            console.log('Meses disponibles:', mesesDisponibles);
+            console.log('Registros totales:', rawData.length);
+            console.log('Conceptos encontrados:', [...new Set(rawData.map(function(r) { return r.concepto; }))]);
+        }
+
+        function extractMes(mesRaw) {
+            if (!mesRaw) return null;
+            var mesStr = String(mesRaw);
+            
+            // Si es formato "01-Jan", extraer "01"
+            var match = mesStr.match(/^(\d{1,2})/);
+            if (match) {
+                return match[1].padStart(2, '0');
+            }
+            
+            // Si ya es un número
+            if (!isNaN(mesStr)) {
+                return String(parseInt(mesStr)).padStart(2, '0');
+            }
+            
+            return null;
+        }
+
+        function normalizeConcepto(concepto) {
+            // Limpiar espacios y normalizar
+            var clean = concepto.trim();
+            
+            // Buscar coincidencia en el mapeo
+            for (var key in CONCEPTO_MAP) {
+                if (clean.toUpperCase().includes(key.toUpperCase()) || key.toUpperCase().includes(clean.toUpperCase())) {
+                    return key;
+                }
+            }
+            
+            return clean;
+        }
+
+        function setupFilters() {
+            var selectAnioActual = document.getElementById('filterAnioActual');
+            var selectMesActual = document.getElementById('filterMesActual');
+            var selectAnioComp = document.getElementById('filterAnioComp');
+            var selectMesComp = document.getElementById('filterMesComp');
+
+            // Limpiar
+            selectAnioActual.innerHTML = '';
+            selectMesActual.innerHTML = '';
+            selectAnioComp.innerHTML = '';
+            selectMesComp.innerHTML = '';
+
+            // Años
+            aniosDisponibles.forEach(function(anio) {
+                selectAnioActual.innerHTML += '<option value="' + anio + '">' + anio + '</option>';
+                selectAnioComp.innerHTML += '<option value="' + anio + '">' + anio + '</option>';
+            });
+
+            // Meses
+            selectMesActual.innerHTML = '<option value="all">Todos (Acumulado)</option>';
+            selectMesComp.innerHTML = '<option value="all">Todos (Acumulado)</option>';
+            mesesDisponibles.forEach(function(mes) {
+                var nombre = MESES[mes] || mes;
+                selectMesActual.innerHTML += '<option value="' + mes + '">' + mes + ' - ' + nombre + '</option>';
+                selectMesComp.innerHTML += '<option value="' + mes + '">' + mes + ' - ' + nombre + '</option>';
+            });
+
+            // Defaults
+            if (aniosDisponibles.length >= 2) {
+                selectAnioActual.value = aniosDisponibles[0];
+                selectAnioComp.value = aniosDisponibles[1];
+            } else if (aniosDisponibles.length === 1) {
+                selectAnioActual.value = aniosDisponibles[0];
+                selectAnioComp.value = aniosDisponibles[0];
+            }
+        }
+
+        function applyFilters() {
+            try {
+                console.log('Aplicando filtros...');
+                
+                currentFilters = {
+                    anioActual: document.getElementById('filterAnioActual').value,
+                    mesActual: document.getElementById('filterMesActual').value,
+                    anioComp: document.getElementById('filterAnioComp').value,
+                    mesComp: document.getElementById('filterMesComp').value
+                };
+                
+                console.log('Filtros:', currentFilters);
+
+                if (!currentFilters.anioActual) {
+                    alert('Por favor seleccione un año actual');
+                    return;
+                }
+
+                calculateData();
+                console.log('Datos calculados:', calculatedData);
+                
+                renderAll();
+                console.log('Renderizado completado');
+            } catch (err) {
+                console.error('Error en applyFilters:', err);
+                alert('Error al aplicar filtros: ' + err.message);
+            }
+        }
+
+        function filterData(anio, mes) {
+            return rawData.filter(function(r) {
+                var anioMatch = String(r.anio) === String(anio);
+                var mesMatch = mes === 'all' || r.mes === mes;
+                return anioMatch && mesMatch;
+            });
+        }
+
+        function aggregateByEmpresa(filteredData) {
+            var result = {};
+            
+            // Inicializar todas las empresas con objeto vacío
+            empresas.forEach(function(emp) {
+                result[emp.nombre] = {};
+            });
+
+            // Si no hay datos filtrados, retornar objeto vacío inicializado
+            if (!filteredData || filteredData.length === 0) {
+                console.log('No hay datos filtrados para agregar');
+                return result;
+            }
+
+            filteredData.forEach(function(r) {
+                var campo = CONCEPTO_MAP[r.concepto];
+                if (!campo) campo = r.concepto; // usar concepto original si no hay mapeo
+
+                empresas.forEach(function(emp) {
+                    if (!result[emp.nombre]) {
+                        result[emp.nombre] = {};
+                    }
+                    if (!result[emp.nombre][campo]) {
+                        result[emp.nombre][campo] = 0;
+                    }
+                    result[emp.nombre][campo] += r.valores[emp.nombre] || 0;
+                });
+            });
+
+            return result;
+        }
+
+        function calculateData() {
+            console.log('Iniciando calculateData...');
+            console.log('Empresas:', empresas.length);
+            console.log('rawData:', rawData.length);
+            
+            if (empresas.length === 0) {
+                console.error('No hay empresas cargadas');
+                return;
+            }
+
+            var dataActual = filterData(currentFilters.anioActual, currentFilters.mesActual);
+            var dataComp = filterData(currentFilters.anioComp, currentFilters.mesComp);
+            
+            console.log('Datos filtrados actual:', dataActual.length);
+            console.log('Datos filtrados comp:', dataComp.length);
+
+            var aggActual = aggregateByEmpresa(dataActual);
+            var aggComp = aggregateByEmpresa(dataComp);
+
+            // Calcular totales del mercado SUMANDO todas las empresas
+            var totalMercadoActual = 0;
+            var totalMercadoComp = 0;
+            var totalVidaActual = 0, totalVidaComp = 0;
+            var totalAccEnfActual = 0, totalAccEnfComp = 0;
+            var totalDanosActual = 0, totalDanosComp = 0;
+
+            empresas.forEach(function(emp) {
+                totalMercadoActual += aggActual[emp.nombre].primas || 0;
+                totalMercadoComp += aggComp[emp.nombre].primas || 0;
+                totalVidaActual += aggActual[emp.nombre].vida || 0;
+                totalVidaComp += aggComp[emp.nombre].vida || 0;
+                totalAccEnfActual += aggActual[emp.nombre].accEnf || 0;
+                totalAccEnfComp += aggComp[emp.nombre].accEnf || 0;
+                totalDanosActual += aggActual[emp.nombre].danos || 0;
+                totalDanosComp += aggComp[emp.nombre].danos || 0;
+            });
+
+            calculatedData = {
+                aggActual: aggActual,
+                aggComp: aggComp,
+                totalMercadoActual: totalMercadoActual,
+                totalMercadoComp: totalMercadoComp,
+                totalVidaActual: totalVidaActual,
+                totalVidaComp: totalVidaComp,
+                totalAccEnfActual: totalAccEnfActual,
+                totalAccEnfComp: totalAccEnfComp,
+                totalDanosActual: totalDanosActual,
+                totalDanosComp: totalDanosComp,
+                crecimientoMercado: totalMercadoComp > 0 ? ((totalMercadoActual - totalMercadoComp) / totalMercadoComp) * 100 : 0,
+                empresas: []
+            };
+
+            // Calcular datos e indicadores por empresa
+            empresas.forEach(function(emp) {
+                var actual = aggActual[emp.nombre] || {};
+                var comp = aggComp[emp.nombre] || {};
+
+                var primas = actual.primas || 0;
+                var primasComp = comp.primas || 0;
+                var share = totalMercadoActual > 0 ? (primas / totalMercadoActual) * 100 : 0;
+                var shareComp = totalMercadoComp > 0 ? (primasComp / totalMercadoComp) * 100 : 0;
+                var crecAbs = primas - primasComp;
+                var crecPct = primasComp > 0 ? (crecAbs / primasComp) * 100 : 0;
+
+                // Indicadores financieros
+                var adqVentas = primas > 0 ? ((actual.adquisicionBruta || 0) / primas) * 100 : 0;
+                var siniestralidad = primas > 0 ? ((actual.siniestralidadBruta || 0) / primas) * 100 : 0;
+                var adminVentas = primas > 0 ? ((actual.gastosAdmin || 0) / primas) * 100 : 0;
+                var prodInvInv = (actual.inversiones || 0) > 0 ? ((actual.productosInv || 0) / (actual.inversiones || 1)) * 100 : 0;
+                var ros = primas > 0 ? ((actual.utilidadNeta || 0) / primas) * 100 : 0;
+                var roe = (actual.patrimonio || 0) > 0 ? ((actual.resultado || 0) / (actual.patrimonio || 1)) * 100 : 0;
+                var roa = (actual.activo || 0) > 0 ? ((actual.resultado || 0) / (actual.activo || 1)) * 100 : 0;
+                var cxcVentas = primas > 0 ? ((actual.primasCobrar || 0) / primas) * 100 : 0;
+                var reservasPasivo = (actual.pasivo || 0) > 0 ? ((actual.reservasNetas || 0) / (actual.pasivo || 1)) * 100 : 0;
+                var capitalPatrimonio = (actual.patrimonio || 0) > 0 ? ((actual.capitalPagado || 0) / (actual.patrimonio || 1)) * 100 : 0;
+                var pasivoActivo = (actual.activo || 0) > 0 ? ((actual.pasivo || 0) / (actual.activo || 1)) * 100 : 0;
+
+                // Shares por ramo
+                var shareVida = totalVidaActual > 0 ? ((actual.vida || 0) / totalVidaActual) * 100 : 0;
+                var shareAccEnf = totalAccEnfActual > 0 ? ((actual.accEnf || 0) / totalAccEnfActual) * 100 : 0;
+                var shareDanos = totalDanosActual > 0 ? ((actual.danos || 0) / totalDanosActual) * 100 : 0;
+
+                calculatedData.empresas.push({
+                    nombre: emp.nombre,
+                    // Primas y crecimiento
+                    primas: primas,
+                    primasComp: primasComp,
+                    share: share,
+                    shareComp: shareComp,
+                    variacionShare: share - shareComp,
+                    crecAbs: crecAbs,
+                    crecPct: crecPct,
+                    // Ramos
+                    vida: actual.vida || 0,
+                    accEnf: actual.accEnf || 0,
+                    danos: actual.danos || 0,
+                    shareVida: shareVida,
+                    shareAccEnf: shareAccEnf,
+                    shareDanos: shareDanos,
+                    // Subramos
+                    vidaPopulares: actual.vidaPopulares || 0,
+                    vidaIndividuales: actual.vidaIndividuales || 0,
+                    vidaColectivos: actual.vidaColectivos || 0,
+                    vidaRentas: actual.vidaRentas || 0,
+                    accSalud: actual.accSalud || 0,
+                    accPersonales: actual.accPersonales || 0,
+                    accViajes: actual.accViajes || 0,
+                    danosIncendio: actual.danosIncendio || 0,
+                    danosTermoto: actual.danosTermoto || 0,
+                    danosVehiculos: actual.danosVehiculos || 0,
+                    danosTransportes: actual.danosTransportes || 0,
+                    danosRobo: actual.danosRobo || 0,
+                    danosCascos: actual.danosCascos || 0,
+                    danosCristales: actual.danosCristales || 0,
+                    danosAviacion: actual.danosAviacion || 0,
+                    danosRC: actual.danosRC || 0,
+                    danosObligatorio: actual.danosObligatorio || 0,
+                    danosTecnicos: actual.danosTecnicos || 0,
+                    danosAgricola: actual.danosAgricola || 0,
+                    danosDiversos: actual.danosDiversos || 0,
+                    // Indicadores
+                    adqVentas: adqVentas,
+                    siniestralidad: siniestralidad,
+                    adminVentas: adminVentas,
+                    prodInvInv: prodInvInv,
+                    ros: ros,
+                    roe: roe,
+                    roa: roa,
+                    cxcVentas: cxcVentas,
+                    reservasPasivo: reservasPasivo,
+                    capitalPatrimonio: capitalPatrimonio,
+                    pasivoActivo: pasivoActivo
+                });
+            });
+
+            // Ordenar por share
+            calculatedData.empresas.sort(function(a, b) { return b.share - a.share; });
+
+            // Datos de SEGUNI
+            calculatedData.seguni = calculatedData.empresas.find(function(e) { return e.nombre === 'SEGUNI'; }) || {};
+
+            console.log('Datos calculados:', calculatedData);
+        }
+
+        function showDashboard() {
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('dashboardContent').style.display = 'block';
+            document.getElementById('navTabs').style.display = 'flex';
+            document.getElementById('downloadBtn').style.display = 'inline-flex';
+            document.getElementById('resetBtn').style.display = 'inline-flex';
+        }
+
+        function renderAll() {
+            try {
+                updatePeriodoInfo();
+                renderResumen();
+                renderCrecimiento();
+                renderShare();
+                renderIndicadores();
+                renderGraficos();
+            } catch (err) {
+                console.error('Error en renderAll:', err);
+                alert('Error al renderizar: ' + err.message);
+            }
+        }
+
+        function updatePeriodoInfo() {
+            var mesActualNombre = currentFilters.mesActual === 'all' ? 'Acumulado' : (MESES[currentFilters.mesActual] || currentFilters.mesActual);
+            var mesCompNombre = currentFilters.mesComp === 'all' ? 'Acumulado' : (MESES[currentFilters.mesComp] || currentFilters.mesComp);
+            
+            document.getElementById('periodoInfo').textContent = 
+                'Período Actual: ' + mesActualNombre + ' ' + currentFilters.anioActual + 
+                ' vs ' + mesCompNombre + ' ' + currentFilters.anioComp +
+                ' | Total Mercado: Q' + formatNum(calculatedData.totalMercadoActual);
+        }
+
+        function formatNum(n) {
+            if (n === null || n === undefined || isNaN(n)) return '-';
+            return new Intl.NumberFormat('es-GT').format(Math.round(n));
+        }
+
+        function formatPct(n, decimals) {
+            if (n === null || n === undefined || isNaN(n)) return '-';
+            return n.toFixed(decimals !== undefined ? decimals : 2) + '%';
+        }
+
+        function renderResumen() {
+            var cd = calculatedData;
+            var seguni = cd.seguni || {};
+
+            // Stats cards
+            var html = '';
+            html += '<div class="stat-card"><div class="stat-label">Primas Mercado Actual</div><div class="stat-value">Q' + formatNum(cd.totalMercadoActual) + '</div></div>';
+            html += '<div class="stat-card"><div class="stat-label">Crecimiento Mercado</div><div class="stat-value" style="color:' + (cd.crecimientoMercado >= 0 ? '#22543d' : '#c53030') + '">' + formatPct(cd.crecimientoMercado) + '</div></div>';
+            html += '<div class="stat-card"><div class="stat-label">Share SEGUNI</div><div class="stat-value">' + formatPct(seguni.share || 0) + '</div></div>';
+            html += '<div class="stat-card"><div class="stat-label">Crec. SEGUNI</div><div class="stat-value" style="color:' + ((seguni.crecPct || 0) >= 0 ? '#22543d' : '#c53030') + '">' + formatPct(seguni.crecPct || 0) + '</div></div>';
+            document.getElementById('statsGrid').innerHTML = html;
+
+            // Top 10
+            var top10 = cd.empresas ? cd.empresas.slice(0, 10) : [];
+            if (top10.length === 0) {
+                document.getElementById('resumenTop10Container').innerHTML = '<p style="text-align:center;color:#718096;">No hay datos para mostrar</p>';
+                return;
+            }
+            html = '<table class="analysis-table"><thead><tr><th>Rank</th><th>Empresa</th><th>Primas</th><th>Share</th><th>Var. Share</th><th>Crec. %</th></tr></thead><tbody>';
+            top10.forEach(function(e, i) {
+                var clsVar = e.variacionShare >= 0 ? 'positive' : 'negative';
+                var clsCrec = e.crecPct >= 0 ? 'positive' : 'negative';
+                html += '<tr>';
+                html += '<td>' + (i + 1) + '</td>';
+                html += '<td class="company-cell" style="background:' + (COLORS[e.nombre] || '#666') + '">' + e.nombre + '</td>';
+                html += '<td>Q' + formatNum(e.primas) + '</td>';
+                html += '<td>' + formatPct(e.share) + '</td>';
+                html += '<td class="' + clsVar + '">' + (e.variacionShare >= 0 ? '+' : '') + formatPct(e.variacionShare) + '</td>';
+                html += '<td class="' + clsCrec + '">' + formatPct(e.crecPct) + '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            document.getElementById('resumenTop10Container').innerHTML = html;
+        }
+
+        function renderCrecimiento() {
+            var cd = calculatedData;
+            var seguni = cd.seguni || {};
+            var seguniComp = (cd.aggComp && cd.aggComp['SEGUNI']) ? cd.aggComp['SEGUNI'] : {};
+
+            // Tabla Mercado vs Universales
+            var rows = [
+                { concepto: 'PRIMAS NETAS EMITIDAS', mActual: cd.totalMercadoActual, mComp: cd.totalMercadoComp, uActual: seguni.primas, uComp: seguni.primasComp },
+                { concepto: 'VIDA', mActual: cd.totalVidaActual, mComp: cd.totalVidaComp, uActual: seguni.vida, uComp: seguniComp.vida || 0 },
+                { concepto: 'GASTOS MÉDICOS Y AP', mActual: cd.totalAccEnfActual, mComp: cd.totalAccEnfComp, uActual: seguni.accEnf, uComp: seguniComp.accEnf || 0 },
+                { concepto: 'DAÑOS', mActual: cd.totalDanosActual, mComp: cd.totalDanosComp, uActual: seguni.danos, uComp: seguniComp.danos || 0 }
+            ];
+
+            var html = '<table class="analysis-table"><thead>';
+            html += '<tr><th rowspan="2"></th><th colspan="5" style="background:#2c5282">MERCADO</th><th colspan="5" style="background:#38a169">UNIVERSALES</th><th colspan="2" style="background:#ed8936">UNIVERSALES</th></tr>';
+            html += '<tr><th style="background:#2c5282">Actual</th><th style="background:#2c5282">Anterior</th><th style="background:#2c5282">Crec. Abs</th><th style="background:#2c5282">% Crec</th><th style="background:#2c5282">Share</th>';
+            html += '<th style="background:#38a169">Actual</th><th style="background:#38a169">Anterior</th><th style="background:#38a169">Crec. Abs</th><th style="background:#38a169">% Crec</th><th style="background:#38a169">Share</th>';
+            html += '<th style="background:#ed8936">Crec vs Merc</th><th style="background:#ed8936">Var Share</th></tr></thead><tbody>';
+
+            rows.forEach(function(r) {
+                var mCrecAbs = r.mActual - r.mComp;
+                var mCrecPct = r.mComp > 0 ? (mCrecAbs / r.mComp) * 100 : 0;
+                var mShare = r.concepto === 'PRIMAS NETAS EMITIDAS' ? 100 : (cd.totalMercadoActual > 0 ? (r.mActual / cd.totalMercadoActual) * 100 : 0);
+                
+                var uCrecAbs = (r.uActual || 0) - (r.uComp || 0);
+                var uCrecPct = (r.uComp || 0) > 0 ? (uCrecAbs / r.uComp) * 100 : 0;
+                var uShare = r.mActual > 0 ? ((r.uActual || 0) / r.mActual) * 100 : 0;
+                var uShareComp = r.mComp > 0 ? ((r.uComp || 0) / r.mComp) * 100 : 0;
+                var uCrecVsMerc = uCrecPct - mCrecPct;
+                var uVarShare = uShare - uShareComp;
+
+                html += '<tr>';
+                html += '<td class="row-header">' + r.concepto + '</td>';
+                html += '<td>' + formatNum(r.mActual) + '</td>';
+                html += '<td>' + formatNum(r.mComp) + '</td>';
+                html += '<td>' + formatNum(mCrecAbs) + '</td>';
+                html += '<td class="' + (mCrecPct >= 0 ? 'positive' : 'negative') + '">' + formatPct(mCrecPct) + '</td>';
+                html += '<td>' + formatPct(mShare, 1) + '</td>';
+                html += '<td>' + formatNum(r.uActual || 0) + '</td>';
+                html += '<td>' + formatNum(r.uComp || 0) + '</td>';
+                html += '<td>' + formatNum(uCrecAbs) + '</td>';
+                html += '<td class="' + (uCrecPct >= 0 ? 'positive' : 'negative') + '">' + formatPct(uCrecPct) + '</td>';
+                html += '<td>' + formatPct(uShare, 1) + '</td>';
+                html += '<td class="' + (uCrecVsMerc >= 0 ? 'positive' : 'negative') + '">' + formatPct(uCrecVsMerc) + '</td>';
+                html += '<td class="' + (uVarShare >= 0 ? 'positive' : 'negative') + '">' + formatPct(uVarShare) + '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('tableMercadoContainer').innerHTML = html;
+
+            // Tabla crecimiento por empresa
+            if (!cd.empresas || cd.empresas.length === 0) {
+                document.getElementById('tableCrecimientoContainer').innerHTML = '<p style="text-align:center;color:#718096;">No hay datos de empresas</p>';
+                return;
+            }
+            
+            var sorted = cd.empresas.slice().sort(function(a, b) { return b.share - a.share; });
+            html = '<table class="analysis-table"><thead><tr><th></th>';
+            sorted.forEach(function(e) {
+                html += '<th class="company-cell" style="background:' + (COLORS[e.nombre] || '#666') + '">' + e.nombre + '</th>';
+            });
+            html += '</tr></thead><tbody>';
+            
+            html += '<tr><td class="row-header">PRIMAS ACTUAL</td>';
+            sorted.forEach(function(e) { html += '<td>' + formatNum(e.primas) + '</td>'; });
+            html += '</tr>';
+            
+            html += '<tr><td class="row-header">PRIMAS ANTERIOR</td>';
+            sorted.forEach(function(e) { html += '<td>' + formatNum(e.primasComp) + '</td>'; });
+            html += '</tr>';
+            
+            html += '<tr><td class="row-header">CREC. %</td>';
+            sorted.forEach(function(e) {
+                var cls = e.crecPct >= 0 ? 'positive' : 'negative';
+                html += '<td class="' + cls + '">' + formatPct(e.crecPct) + '</td>';
+            });
+            html += '</tr>';
+            
+            html += '<tr><td class="row-header">SHARE ACTUAL</td>';
+            sorted.forEach(function(e) { html += '<td>' + formatPct(e.share) + '</td>'; });
+            html += '</tr>';
+            
+            html += '<tr><td class="row-header">VAR. SHARE</td>';
+            sorted.forEach(function(e) {
+                var cls = e.variacionShare >= 0 ? 'positive' : 'negative';
+                html += '<td class="' + cls + '">' + (e.variacionShare >= 0 ? '+' : '') + formatPct(e.variacionShare) + '</td>';
+            });
+            html += '</tr></tbody></table>';
+            document.getElementById('tableCrecimientoContainer').innerHTML = html;
+        }
+
+        function renderIndicatorRow(label, field, ascending) {
+            if (!calculatedData.empresas || calculatedData.empresas.length === 0) {
+                return '<div class="indicator-row"><div class="indicator-label">' + label + '</div><div class="indicator-values"><div class="indicator-cell">Sin datos</div></div></div>';
+            }
+            
+            var data = calculatedData.empresas.map(function(e) {
+                return { nombre: e.nombre, valor: e[field] || 0 };
+            }).sort(function(a, b) { return ascending ? a.valor - b.valor : b.valor - a.valor; });
+
+            var html = '<div class="indicator-row"><div class="indicator-label">' + label + '</div><div class="indicator-values">';
+            data.forEach(function(d, i) {
+                html += '<div class="indicator-cell">';
+                html += '<div class="company" style="background:' + (COLORS[d.nombre] || '#666') + '">' + d.nombre + '</div>';
+                html += '<div class="value">' + formatPct(d.valor) + '</div>';
+                html += '<div class="rank">' + (i + 1) + '</div></div>';
+            });
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderShareRow(label, field) {
+            if (!calculatedData.empresas || calculatedData.empresas.length === 0) {
+                return '<div class="indicator-row"><div class="indicator-label">' + label + '</div><div class="indicator-values"><div class="indicator-cell">Sin datos</div></div></div>';
+            }
+            
+            var total = calculatedData.empresas.reduce(function(sum, e) { return sum + (e[field] || 0); }, 0);
+            var data = calculatedData.empresas.map(function(e) {
+                var val = e[field] || 0;
+                return { nombre: e.nombre, share: total > 0 ? (val / total) * 100 : 0 };
+            }).sort(function(a, b) { return b.share - a.share; });
+
+            var html = '<div class="indicator-row"><div class="indicator-label">' + label + '</div><div class="indicator-values">';
+            data.forEach(function(d, i) {
+                html += '<div class="indicator-cell">';
+                html += '<div class="company" style="background:' + (COLORS[d.nombre] || '#666') + '">' + d.nombre + '</div>';
+                html += '<div class="value">' + formatPct(d.share) + '</div>';
+                html += '<div class="rank">' + (i + 1) + '</div></div>';
+            });
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderShare() {
+            var html = '';
+
+            // Total
+            html += '<div class="dashboard-card"><div class="card-header"><span class="card-title">TOTAL MERCADO</span></div>';
+            html += renderIndicatorRow('SHARE TOTAL', 'share', false);
+            html += '</div>';
+
+            // VIDA
+            html += '<div class="dashboard-card"><div class="ramo-title">RAMO DE VIDA</div>';
+            html += renderIndicatorRow('VIDA', 'shareVida', false);
+            html += '<div class="subramo-section"><div class="subramo-title">SUBRAMOS VIDA</div>';
+            html += renderShareRow('Planes Populares', 'vidaPopulares');
+            html += renderShareRow('Planes Individuales', 'vidaIndividuales');
+            html += renderShareRow('Planes Colectivos', 'vidaColectivos');
+            html += renderShareRow('Rentas y Pensiones', 'vidaRentas');
+            html += '</div></div>';
+
+            // GASTOS MÉDICOS
+            html += '<div class="dashboard-card"><div class="ramo-title">RAMO DE GASTOS MÉDICOS Y AP</div>';
+            html += renderIndicatorRow('GASTOS MÉDICOS Y AP', 'shareAccEnf', false);
+            html += '<div class="subramo-section"><div class="subramo-title">SUBRAMOS GASTOS MÉDICOS</div>';
+            html += renderShareRow('Salud y Hospitalización', 'accSalud');
+            html += renderShareRow('Accidentes Personales', 'accPersonales');
+            html += renderShareRow('Accidentes en Viajes', 'accViajes');
+            html += '</div></div>';
+
+            // DAÑOS
+            html += '<div class="dashboard-card"><div class="ramo-title">RAMO DE DAÑOS</div>';
+            html += renderIndicatorRow('DAÑOS', 'shareDanos', false);
+            html += '<div class="subramo-section"><div class="subramo-title">SUBRAMOS DAÑOS</div>';
+            html += renderShareRow('Incendio y Líneas Aliadas', 'danosIncendio');
+            html += renderShareRow('Terremoto', 'danosTermoto');
+            html += renderShareRow('Vehículos Automotores', 'danosVehiculos');
+            html += renderShareRow('Transportes', 'danosTransportes');
+            html += renderShareRow('Robo y Hurto', 'danosRobo');
+            html += renderShareRow('Cascos Marítimos', 'danosCascos');
+            html += renderShareRow('Rotura de Cristales', 'danosCristales');
+            html += renderShareRow('Aviación', 'danosAviacion');
+            html += renderShareRow('Responsabilidad Civil', 'danosRC');
+            html += renderShareRow('Seguro Obligatorio', 'danosObligatorio');
+            html += renderShareRow('Riesgos Técnicos', 'danosTecnicos');
+            html += renderShareRow('Agrícola', 'danosAgricola');
+            html += renderShareRow('Diversos', 'danosDiversos');
+            html += '</div></div>';
+
+            document.getElementById('shareRamosContainer').innerHTML = html;
+        }
+
+        function renderIndicadores() {
+            // Gestión
+            var gestionHTML = '';
+            gestionHTML += renderIndicatorRow('Adquisición / Ventas ↓', 'adqVentas', true);
+            gestionHTML += renderIndicatorRow('Siniestralidad (Bruta) ↓', 'siniestralidad', true);
+            gestionHTML += renderIndicatorRow('Administración / Ventas ↓', 'adminVentas', true);
+            document.getElementById('indicadoresGestionContainer').innerHTML = gestionHTML;
+
+            // Rentabilidad
+            var rentHTML = '';
+            rentHTML += renderIndicatorRow('Prod. Inversiones / Inversiones ↑', 'prodInvInv', false);
+            rentHTML += renderIndicatorRow('R.O.S. ↑', 'ros', false);
+            document.getElementById('indicadoresRentabilidadContainer').innerHTML = rentHTML;
+
+            // Solvencia
+            var solvHTML = '';
+            solvHTML += renderIndicatorRow('R.O.E. ↑', 'roe', false);
+            solvHTML += renderIndicatorRow('R.O.A. ↑', 'roa', false);
+            solvHTML += renderIndicatorRow('Cuentas x Cobrar / Ventas ↓', 'cxcVentas', true);
+            solvHTML += renderIndicatorRow('Reservas Netas / Pasivo ↑', 'reservasPasivo', false);
+            solvHTML += renderIndicatorRow('Capital Pagado / Patrimonio ↑', 'capitalPatrimonio', false);
+            solvHTML += renderIndicatorRow('Pasivo / Activo', 'pasivoActivo', true);
+            document.getElementById('indicadoresSolvenciaContainer').innerHTML = solvHTML;
+        }
+
+        function renderGraficos() {
+            var cd = calculatedData;
+
+            // Verificar que hay datos
+            if (!cd.empresas || cd.empresas.length === 0) {
+                console.log('No hay datos para gráficos');
+                return;
+            }
+
+            // Share Chart
+            if (charts.share) charts.share.destroy();
+            charts.share = new Chart(document.getElementById('chartShare'), {
+                type: 'doughnut',
+                data: {
+                    labels: cd.empresas.map(function(e) { return e.nombre; }),
+                    datasets: [{ data: cd.empresas.map(function(e) { return e.share; }), backgroundColor: cd.empresas.map(function(e) { return COLORS[e.nombre] || '#666'; }) }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { font: { size: 9 } } }, datalabels: { color: 'white', font: { weight: 'bold', size: 8 }, formatter: function(v) { return v >= 2 ? v.toFixed(1) + '%' : ''; } } }
+                }
+            });
+
+            // Crecimiento Chart
+            if (charts.crecimiento) charts.crecimiento.destroy();
+            var sortedCrec = cd.empresas.slice().sort(function(a, b) { return b.crecPct - a.crecPct; });
+            charts.crecimiento = new Chart(document.getElementById('chartCrecimiento'), {
+                type: 'bar',
+                data: {
+                    labels: sortedCrec.map(function(e) { return e.nombre; }),
+                    datasets: [{ label: '% Crecimiento', data: sortedCrec.map(function(e) { return e.crecPct; }), backgroundColor: sortedCrec.map(function(e) { return e.crecPct >= 0 ? '#48bb78' : '#f56565'; }) }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, datalabels: { color: '#1a202c', font: { weight: 'bold', size: 8 }, anchor: 'end', align: 'top', formatter: function(v) { return v.toFixed(1) + '%'; } } },
+                    scales: { x: { ticks: { font: { size: 8 } } } }
+                }
+            });
+
+            // ROE Chart
+            if (charts.roe) charts.roe.destroy();
+            var sortedROE = cd.empresas.slice().sort(function(a, b) { return b.roe - a.roe; });
+            charts.roe = new Chart(document.getElementById('chartROE'), {
+                type: 'bar',
+                data: {
+                    labels: sortedROE.map(function(e) { return e.nombre; }),
+                    datasets: [{ label: 'ROE %', data: sortedROE.map(function(e) { return e.roe; }), backgroundColor: sortedROE.map(function(e) { return COLORS[e.nombre] || '#666'; }) }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                    plugins: { legend: { display: false }, datalabels: { color: '#1a202c', font: { weight: 'bold', size: 8 }, anchor: 'end', align: 'right', formatter: function(v) { return v.toFixed(1) + '%'; } } },
+                    scales: { y: { ticks: { font: { size: 8 } } } }
+                }
+            });
+
+            // Siniestralidad Chart
+            if (charts.siniestralidad) charts.siniestralidad.destroy();
+            var sortedSini = cd.empresas.slice().sort(function(a, b) { return a.siniestralidad - b.siniestralidad; });
+            charts.siniestralidad = new Chart(document.getElementById('chartSiniestralidad'), {
+                type: 'bar',
+                data: {
+                    labels: sortedSini.map(function(e) { return e.nombre; }),
+                    datasets: [{ label: 'Siniestralidad %', data: sortedSini.map(function(e) { return e.siniestralidad; }), backgroundColor: '#ed8936' }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                    plugins: { legend: { display: false }, datalabels: { color: '#1a202c', font: { weight: 'bold', size: 8 }, anchor: 'end', align: 'right', formatter: function(v) { return v.toFixed(1) + '%'; } } },
+                    scales: { y: { ticks: { font: { size: 8 } } } }
+                }
+            });
+        }
+
+        function downloadExcel() {
+            var wb = XLSX.utils.book_new();
+            var cd = calculatedData;
+
+            // Hoja 1: SHARE
+            var shareData = [['Empresa', 'Primas Actual', 'Share %', 'Primas Anterior', 'Share Anterior %', 'Variación Share']];
+            cd.empresas.forEach(function(e) {
+                shareData.push([e.nombre, e.primas, e.share / 100, e.primasComp, e.shareComp / 100, e.variacionShare / 100]);
+            });
+            var wsShare = XLSX.utils.aoa_to_sheet(shareData);
+            wsShare['!autofilter'] = { ref: 'A1:F' + shareData.length };
+            XLSX.utils.book_append_sheet(wb, wsShare, 'SHARE');
+
+            // Hoja 2: CRECIMIENTO
+            var crecData = [['Empresa', 'Primas Actual', 'Primas Anterior', 'Crecimiento Abs', 'Crecimiento %']];
+            cd.empresas.forEach(function(e) {
+                crecData.push([e.nombre, e.primas, e.primasComp, e.crecAbs, e.crecPct / 100]);
+            });
+            var wsCrec = XLSX.utils.aoa_to_sheet(crecData);
+            wsCrec['!autofilter'] = { ref: 'A1:E' + crecData.length };
+            XLSX.utils.book_append_sheet(wb, wsCrec, 'CRECIMIENTO');
+
+            // Hoja 3: MERCADO_VS_UNIVERSALES
+            var seguni = cd.seguni || {};
+            var mercadoData = [
+                ['Concepto', 'Mercado Actual', 'Mercado Anterior', 'Crec. Mercado %', 'SEGUNI Actual', 'SEGUNI Anterior', 'Crec. SEGUNI %', 'Share SEGUNI'],
+                ['TOTAL', cd.totalMercadoActual, cd.totalMercadoComp, cd.crecimientoMercado / 100, seguni.primas, seguni.primasComp, (seguni.crecPct || 0) / 100, (seguni.share || 0) / 100]
+            ];
+            var wsMercado = XLSX.utils.aoa_to_sheet(mercadoData);
+            wsShare['!autofilter'] = { ref: 'A1:H' + mercadoData.length };
+            XLSX.utils.book_append_sheet(wb, wsMercado, 'MERCADO_VS_UNIVERSALES');
+
+            // Hoja 4: INDICADORES_GESTION
+            var gestionData = [['Empresa', 'Adq/Ventas', 'Siniestralidad', 'Admin/Ventas']];
+            cd.empresas.forEach(function(e) {
+                gestionData.push([e.nombre, e.adqVentas / 100, e.siniestralidad / 100, e.adminVentas / 100]);
+            });
+            var wsGestion = XLSX.utils.aoa_to_sheet(gestionData);
+            wsGestion['!autofilter'] = { ref: 'A1:D' + gestionData.length };
+            XLSX.utils.book_append_sheet(wb, wsGestion, 'INDICADORES_GESTION');
+
+            // Hoja 5: INDICADORES_RENTABILIDAD
+            var rentData = [['Empresa', 'ProdInv/Inv', 'ROS', 'ROE', 'ROA']];
+            cd.empresas.forEach(function(e) {
+                rentData.push([e.nombre, e.prodInvInv / 100, e.ros / 100, e.roe / 100, e.roa / 100]);
+            });
+            var wsRent = XLSX.utils.aoa_to_sheet(rentData);
+            wsRent['!autofilter'] = { ref: 'A1:E' + rentData.length };
+            XLSX.utils.book_append_sheet(wb, wsRent, 'INDICADORES_RENTABILIDAD');
+
+            // Hoja 6: INDICADORES_SOLVENCIA
+            var solvData = [['Empresa', 'CxC/Ventas', 'Reservas/Pasivo', 'Capital/Patrimonio', 'Pasivo/Activo']];
+            cd.empresas.forEach(function(e) {
+                solvData.push([e.nombre, e.cxcVentas / 100, e.reservasPasivo / 100, e.capitalPatrimonio / 100, e.pasivoActivo / 100]);
+            });
+            var wsSolv = XLSX.utils.aoa_to_sheet(solvData);
+            wsSolv['!autofilter'] = { ref: 'A1:E' + solvData.length };
+            XLSX.utils.book_append_sheet(wb, wsSolv, 'INDICADORES_SOLVENCIA');
+
+            // Hoja 7: SHARE_POR_RAMO
+            var ramoData = [['Empresa', 'Share Total', 'Share Vida', 'Share GM', 'Share Daños']];
+            cd.empresas.forEach(function(e) {
+                ramoData.push([e.nombre, e.share / 100, e.shareVida / 100, e.shareAccEnf / 100, e.shareDanos / 100]);
+            });
+            var wsRamo = XLSX.utils.aoa_to_sheet(ramoData);
+            wsRamo['!autofilter'] = { ref: 'A1:E' + ramoData.length };
+            XLSX.utils.book_append_sheet(wb, wsRamo, 'SHARE_POR_RAMO');
+
+            var mesActual = currentFilters.mesActual === 'all' ? 'Acum' : currentFilters.mesActual;
+            var fileName = 'AGIS_' + currentFilters.anioActual + '_' + mesActual + '.xlsx';
+            XLSX.writeFile(wb, fileName);
+        }
+
+        function resetApp() {
+            rawData = [];
+            empresas = [];
+            calculatedData = {};
+            Object.keys(charts).forEach(function(k) { if (charts[k]) charts[k].destroy(); });
+            charts = {};
+            document.getElementById('uploadSection').style.display = 'block';
+            document.getElementById('dashboardContent').style.display = 'none';
+            document.getElementById('navTabs').style.display = 'none';
+            document.getElementById('downloadBtn').style.display = 'none';
+            document.getElementById('resetBtn').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+            document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+            document.querySelector('.nav-tab[data-tab="resumen"]').classList.add('active');
+            document.getElementById('tab-resumen').classList.add('active');
+        }
+    </script>
+</body>
+</html>
