@@ -1162,74 +1162,168 @@
 
         function downloadExcel() {
             var wb = XLSX.utils.book_new();
-            var cd = calculatedData;
 
-            // Hoja 1: SHARE
-            var shareData = [['Empresa', 'Primas Actual', 'Share %', 'Primas Anterior', 'Share Anterior %', 'Variación Share']];
-            cd.empresas.forEach(function(e) {
-                shareData.push([e.nombre, e.primas, e.share / 100, e.primasComp, e.shareComp / 100, e.variacionShare / 100]);
+            // Función para calcular datos de un período específico
+            function calcularPeriodo(anio, mes) {
+                var filtered = rawData.filter(function(r) {
+                    return String(r.anio) === String(anio) && (mes === 'all' || r.mes === mes);
+                });
+                
+                var agg = {};
+                empresas.forEach(function(emp) { agg[emp.nombre] = {}; });
+                
+                filtered.forEach(function(r) {
+                    var campo = CONCEPTO_MAP[r.concepto] || r.concepto;
+                    empresas.forEach(function(emp) {
+                        if (!agg[emp.nombre][campo]) agg[emp.nombre][campo] = 0;
+                        agg[emp.nombre][campo] += r.valores[emp.nombre] || 0;
+                    });
+                });
+                
+                var totalMercado = 0;
+                empresas.forEach(function(emp) { totalMercado += agg[emp.nombre].primas || 0; });
+                
+                return { agg: agg, totalMercado: totalMercado };
+            }
+
+            // Generar combinaciones de año/mes disponibles
+            var periodos = [];
+            aniosDisponibles.forEach(function(anio) {
+                // Acumulado del año
+                periodos.push({ anio: anio, mes: 'all', mesNombre: 'Acumulado' });
+                // Cada mes
+                mesesDisponibles.forEach(function(mes) {
+                    var tieneData = rawData.some(function(r) {
+                        return String(r.anio) === String(anio) && r.mes === mes;
+                    });
+                    if (tieneData) {
+                        periodos.push({ anio: anio, mes: mes, mesNombre: MESES[mes] || mes });
+                    }
+                });
             });
-            var wsShare = XLSX.utils.aoa_to_sheet(shareData);
-            wsShare['!autofilter'] = { ref: 'A1:F' + shareData.length };
-            XLSX.utils.book_append_sheet(wb, wsShare, 'SHARE');
 
-            // Hoja 2: CRECIMIENTO
-            var crecData = [['Empresa', 'Primas Actual', 'Primas Anterior', 'Crecimiento Abs', 'Crecimiento %']];
-            cd.empresas.forEach(function(e) {
-                crecData.push([e.nombre, e.primas, e.primasComp, e.crecAbs, e.crecPct / 100]);
+            // HOJA 1: PRIMAS
+            var primasData = [['Año', 'Mes', 'Empresa', 'Primas', 'Share', 'Total Mercado']];
+            periodos.forEach(function(p) {
+                var calc = calcularPeriodo(p.anio, p.mes);
+                empresas.forEach(function(emp) {
+                    var primas = calc.agg[emp.nombre].primas || 0;
+                    var share = calc.totalMercado > 0 ? primas / calc.totalMercado : 0;
+                    primasData.push([p.anio, p.mes === 'all' ? 'Acumulado' : MESES[p.mes], emp.nombre, primas, share, calc.totalMercado]);
+                });
             });
-            var wsCrec = XLSX.utils.aoa_to_sheet(crecData);
-            wsCrec['!autofilter'] = { ref: 'A1:E' + crecData.length };
-            XLSX.utils.book_append_sheet(wb, wsCrec, 'CRECIMIENTO');
+            var wsPrimas = XLSX.utils.aoa_to_sheet(primasData);
+            wsPrimas['!autofilter'] = { ref: 'A1:F' + primasData.length };
+            XLSX.utils.book_append_sheet(wb, wsPrimas, 'PRIMAS');
 
-            // Hoja 3: MERCADO_VS_UNIVERSALES
-            var seguni = cd.seguni || {};
-            var mercadoData = [
-                ['Concepto', 'Mercado Actual', 'Mercado Anterior', 'Crec. Mercado %', 'SEGUNI Actual', 'SEGUNI Anterior', 'Crec. SEGUNI %', 'Share SEGUNI'],
-                ['TOTAL', cd.totalMercadoActual, cd.totalMercadoComp, cd.crecimientoMercado / 100, seguni.primas, seguni.primasComp, (seguni.crecPct || 0) / 100, (seguni.share || 0) / 100]
-            ];
-            var wsMercado = XLSX.utils.aoa_to_sheet(mercadoData);
-            wsShare['!autofilter'] = { ref: 'A1:H' + mercadoData.length };
-            XLSX.utils.book_append_sheet(wb, wsMercado, 'MERCADO_VS_UNIVERSALES');
+            // HOJA 2: PRIMAS_POR_RAMO
+            var ramosData = [['Año', 'Mes', 'Empresa', 'Vida', 'Gastos Medicos', 'Daños']];
+            periodos.forEach(function(p) {
+                var calc = calcularPeriodo(p.anio, p.mes);
+                empresas.forEach(function(emp) {
+                    ramosData.push([
+                        p.anio, 
+                        p.mes === 'all' ? 'Acumulado' : MESES[p.mes], 
+                        emp.nombre,
+                        calc.agg[emp.nombre].vida || 0,
+                        calc.agg[emp.nombre].accEnf || 0,
+                        calc.agg[emp.nombre].danos || 0
+                    ]);
+                });
+            });
+            var wsRamos = XLSX.utils.aoa_to_sheet(ramosData);
+            wsRamos['!autofilter'] = { ref: 'A1:F' + ramosData.length };
+            XLSX.utils.book_append_sheet(wb, wsRamos, 'PRIMAS_POR_RAMO');
 
-            // Hoja 4: INDICADORES_GESTION
-            var gestionData = [['Empresa', 'Adq/Ventas', 'Siniestralidad', 'Admin/Ventas']];
-            cd.empresas.forEach(function(e) {
-                gestionData.push([e.nombre, e.adqVentas / 100, e.siniestralidad / 100, e.adminVentas / 100]);
+            // HOJA 3: INDICADORES_GESTION
+            var gestionData = [['Año', 'Mes', 'Empresa', 'Adq_Ventas', 'Siniestralidad', 'Admin_Ventas']];
+            periodos.forEach(function(p) {
+                var calc = calcularPeriodo(p.anio, p.mes);
+                empresas.forEach(function(emp) {
+                    var d = calc.agg[emp.nombre];
+                    var primas = d.primas || 0;
+                    gestionData.push([
+                        p.anio,
+                        p.mes === 'all' ? 'Acumulado' : MESES[p.mes],
+                        emp.nombre,
+                        primas > 0 ? (d.adquisicionBruta || 0) / primas : 0,
+                        primas > 0 ? (d.siniestralidadBruta || 0) / primas : 0,
+                        primas > 0 ? (d.gastosAdmin || 0) / primas : 0
+                    ]);
+                });
             });
             var wsGestion = XLSX.utils.aoa_to_sheet(gestionData);
-            wsGestion['!autofilter'] = { ref: 'A1:D' + gestionData.length };
+            wsGestion['!autofilter'] = { ref: 'A1:F' + gestionData.length };
             XLSX.utils.book_append_sheet(wb, wsGestion, 'INDICADORES_GESTION');
 
-            // Hoja 5: INDICADORES_RENTABILIDAD
-            var rentData = [['Empresa', 'ProdInv/Inv', 'ROS', 'ROE', 'ROA']];
-            cd.empresas.forEach(function(e) {
-                rentData.push([e.nombre, e.prodInvInv / 100, e.ros / 100, e.roe / 100, e.roa / 100]);
+            // HOJA 4: INDICADORES_RENTABILIDAD
+            var rentData = [['Año', 'Mes', 'Empresa', 'ProdInv_Inv', 'ROS', 'ROE', 'ROA']];
+            periodos.forEach(function(p) {
+                var calc = calcularPeriodo(p.anio, p.mes);
+                empresas.forEach(function(emp) {
+                    var d = calc.agg[emp.nombre];
+                    var primas = d.primas || 0;
+                    rentData.push([
+                        p.anio,
+                        p.mes === 'all' ? 'Acumulado' : MESES[p.mes],
+                        emp.nombre,
+                        (d.inversiones || 0) > 0 ? (d.productosInv || 0) / d.inversiones : 0,
+                        primas > 0 ? (d.utilidadNeta || 0) / primas : 0,
+                        (d.patrimonio || 0) > 0 ? (d.resultado || 0) / d.patrimonio : 0,
+                        (d.activo || 0) > 0 ? (d.resultado || 0) / d.activo : 0
+                    ]);
+                });
             });
             var wsRent = XLSX.utils.aoa_to_sheet(rentData);
-            wsRent['!autofilter'] = { ref: 'A1:E' + rentData.length };
+            wsRent['!autofilter'] = { ref: 'A1:G' + rentData.length };
             XLSX.utils.book_append_sheet(wb, wsRent, 'INDICADORES_RENTABILIDAD');
 
-            // Hoja 6: INDICADORES_SOLVENCIA
-            var solvData = [['Empresa', 'CxC/Ventas', 'Reservas/Pasivo', 'Capital/Patrimonio', 'Pasivo/Activo']];
-            cd.empresas.forEach(function(e) {
-                solvData.push([e.nombre, e.cxcVentas / 100, e.reservasPasivo / 100, e.capitalPatrimonio / 100, e.pasivoActivo / 100]);
+            // HOJA 5: INDICADORES_SOLVENCIA
+            var solvData = [['Año', 'Mes', 'Empresa', 'CxC_Ventas', 'Reservas_Pasivo', 'Capital_Patrimonio', 'Pasivo_Activo']];
+            periodos.forEach(function(p) {
+                var calc = calcularPeriodo(p.anio, p.mes);
+                empresas.forEach(function(emp) {
+                    var d = calc.agg[emp.nombre];
+                    var primas = d.primas || 0;
+                    solvData.push([
+                        p.anio,
+                        p.mes === 'all' ? 'Acumulado' : MESES[p.mes],
+                        emp.nombre,
+                        primas > 0 ? (d.primasCobrar || 0) / primas : 0,
+                        (d.pasivo || 0) > 0 ? (d.reservasNetas || 0) / d.pasivo : 0,
+                        (d.patrimonio || 0) > 0 ? (d.capitalPagado || 0) / d.patrimonio : 0,
+                        (d.activo || 0) > 0 ? (d.pasivo || 0) / d.activo : 0
+                    ]);
+                });
             });
             var wsSolv = XLSX.utils.aoa_to_sheet(solvData);
-            wsSolv['!autofilter'] = { ref: 'A1:E' + solvData.length };
+            wsSolv['!autofilter'] = { ref: 'A1:G' + solvData.length };
             XLSX.utils.book_append_sheet(wb, wsSolv, 'INDICADORES_SOLVENCIA');
 
-            // Hoja 7: SHARE_POR_RAMO
-            var ramoData = [['Empresa', 'Share Total', 'Share Vida', 'Share GM', 'Share Daños']];
-            cd.empresas.forEach(function(e) {
-                ramoData.push([e.nombre, e.share / 100, e.shareVida / 100, e.shareAccEnf / 100, e.shareDanos / 100]);
+            // HOJA 6: BALANCE
+            var balanceData = [['Año', 'Mes', 'Empresa', 'Activo', 'Inversiones', 'Pasivo', 'Patrimonio', 'Capital_Pagado', 'Resultado']];
+            periodos.forEach(function(p) {
+                var calc = calcularPeriodo(p.anio, p.mes);
+                empresas.forEach(function(emp) {
+                    var d = calc.agg[emp.nombre];
+                    balanceData.push([
+                        p.anio,
+                        p.mes === 'all' ? 'Acumulado' : MESES[p.mes],
+                        emp.nombre,
+                        d.activo || 0,
+                        d.inversiones || 0,
+                        d.pasivo || 0,
+                        d.patrimonio || 0,
+                        d.capitalPagado || 0,
+                        d.resultado || 0
+                    ]);
+                });
             });
-            var wsRamo = XLSX.utils.aoa_to_sheet(ramoData);
-            wsRamo['!autofilter'] = { ref: 'A1:E' + ramoData.length };
-            XLSX.utils.book_append_sheet(wb, wsRamo, 'SHARE_POR_RAMO');
+            var wsBalance = XLSX.utils.aoa_to_sheet(balanceData);
+            wsBalance['!autofilter'] = { ref: 'A1:I' + balanceData.length };
+            XLSX.utils.book_append_sheet(wb, wsBalance, 'BALANCE');
 
-            var mesActual = currentFilters.mesActual === 'all' ? 'Acum' : currentFilters.mesActual;
-            var fileName = 'AGIS_' + currentFilters.anioActual + '_' + mesActual + '.xlsx';
+            var fileName = 'AGIS_Reporte_Completo.xlsx';
             XLSX.writeFile(wb, fileName);
         }
 
